@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a problem with the Stockpile plugin
+description: Report a problem with the Aerial Fishing Helper plugin
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -61,31 +61,21 @@ body:
       description: Which part of the plugin is affected? (Select all that apply.)
       multiple: true
       options:
-        - Item tracking (adding / auto-add / consolidation / collection log)
-        - Live pricing (GE / wiki realtime / time-window values)
-        - Profit tracking (cost basis / acquisitions / portfolio total)
-        - Detail view & charts (graphs, timeframes, pop-out windows)
-        - Notifications / price alerts
-        - Panel / overlays (ground or inventory highlights)
+        - Spot ranking / click order
+        - Spot highlighting & rank numbers
+        - Tick & expiry timers
+        - Frenzy detection
+        - Overlay rendering
         - Configuration / settings
         - Other
     validations:
       required: true
 
-  - type: textarea
-    id: items
-    attributes:
-      label: Tracked item(s) involved
-      description: >
-        If the bug is specific to certain items, list them (name and/or item ID).
-        For a value or profit issue, include the quantity and recorded acquisition price.
-      placeholder: "e.g. Yew logs (ID 1515), qty 1000, recorded at 280 ea"
-
   - type: input
     id: plugin-version
     attributes:
       label: Plugin version
-      placeholder: "1.2"
+      placeholder: "1.0.0"
     validations:
       required: true
 
@@ -128,7 +118,7 @@ body:
     id: screenshots
     attributes:
       label: Screenshots
-      description: If applicable, add screenshots of the panel, chart, or config.
+      description: If applicable, add screenshots of the overlay or config.
 
   - type: textarea
     id: context

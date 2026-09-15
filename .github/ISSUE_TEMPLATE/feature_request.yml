@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest an idea or enhancement for the Stockpile plugin
+description: Suggest an idea or enhancement for the Aerial Fishing Helper plugin
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
@@ -41,12 +41,11 @@ body:
       description: Which part of the plugin would this affect? (Select all that apply.)
       multiple: true
       options:
-        - Item tracking (adding / auto-add / consolidation / collection log)
-        - Live pricing (GE / wiki realtime / time-window values)
-        - Profit tracking (cost basis / acquisitions / portfolio total)
-        - Detail view & charts (graphs, timeframes, pop-out windows)
-        - Notifications / price alerts
-        - Panel / overlays (ground or inventory highlights)
+        - Spot ranking / click order
+        - Spot highlighting & rank numbers
+        - Tick & expiry timers
+        - Frenzy detection
+        - Overlay rendering
         - Configuration / settings
         - New / other
     validations:
