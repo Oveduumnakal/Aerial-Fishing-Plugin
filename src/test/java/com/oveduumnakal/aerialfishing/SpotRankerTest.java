@@ -45,7 +45,7 @@ public class SpotRankerTest
 
 	private static final WorldPoint PLAYER = new WorldPoint(3000, 3000, 0);
 
-	private static final RankingParams PARAMS = new RankingParams(12, 20, 15);
+	private static final RankingParams PARAMS = new RankingParams(12, 15);
 
 	/**
 	 * Builds a fresh spot at the given Chebyshev distance east of the player.
@@ -150,5 +150,111 @@ public class SpotRankerTest
 
 		assertTrue(ranked.contains(reachable));
 		assertFalse(ranked.contains(tooFar));
+	}
+
+	/**
+	 * Catch ticks step up exactly at the 2/3, 4/5, and 5/6 tile boundaries.
+	 */
+	@Test
+	public void distanceBandEdges()
+	{
+		int[] distances = {2, 3, 4, 5, 6};
+		int[] expected = {1, 2, 2, 3, 4};
+		for (int i = 0; i < distances.length; i++)
+		{
+			AerialFishSpot s = spot(distances[i], false, 0);
+			SpotRanker.rank(PLAYER, TICK, Arrays.asList(s), PARAMS);
+			assertEquals("distance " + distances[i], expected[i], s.getCatchTicks());
+		}
+	}
+
+	/**
+	 * A spot past the 3-tick band is still ranked, but after every 3-tick spot.
+	 */
+	@Test
+	public void farSpotRanksAfterThreeTick()
+	{
+		AerialFishSpot threeTick = spot(5, false, 10);
+		AerialFishSpot far = spot(6, false, 0);
+
+		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(far, threeTick), PARAMS);
+
+		assertEquals(threeTick, ranked.get(0));
+		assertEquals(far, ranked.get(1));
+	}
+
+	/**
+	 * A spot exactly at the max reach distance is kept; one tile farther is dropped.
+	 */
+	@Test
+	public void maxReachDistanceIsInclusive()
+	{
+		AerialFishSpot atEdge = spot(15, false, 0);
+		AerialFishSpot pastEdge = spot(16, false, 0);
+
+		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(atEdge, pastEdge), PARAMS);
+
+		assertTrue(ranked.contains(atEdge));
+		assertFalse(ranked.contains(pastEdge));
+	}
+
+	/**
+	 * Within the 3-tick tier, frenzied beats a plain spot even when the plain spot
+	 * has more life left.
+	 */
+	@Test
+	public void frenzyOutranksLongerLivedPlainSpotInTier()
+	{
+		AerialFishSpot oldFrenzy = spot(5, true, 10);
+		AerialFishSpot freshPlain = spot(5, false, 0);
+
+		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(freshPlain, oldFrenzy), PARAMS);
+
+		assertEquals(oldFrenzy, ranked.get(0));
+		assertEquals(freshPlain, ranked.get(1));
+	}
+
+	/**
+	 * A frenzied spot is pinned to the 3-tick tier even when it is close enough to
+	 * catch in 1 tick, so a plain 2-tick spot still outranks it.
+	 */
+	@Test
+	public void adjacentFrenzyStaysInThreeTickTier()
+	{
+		AerialFishSpot adjacentFrenzy = spot(1, true, 0);
+		AerialFishSpot twoTick = spot(3, false, 0);
+
+		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(adjacentFrenzy, twoTick), PARAMS);
+
+		assertEquals(twoTick, ranked.get(0));
+		assertEquals(adjacentFrenzy, ranked.get(1));
+		assertEquals(1, adjacentFrenzy.getCatchTicks());
+	}
+
+	/**
+	 * A spot that falls out of reach loses its previous rank.
+	 */
+	@Test
+	public void droppedSpotHasRankCleared()
+	{
+		AerialFishSpot s = spot(1, false, 0);
+		SpotRanker.rank(PLAYER, TICK, Arrays.asList(s), PARAMS);
+		assertEquals(1, s.getRank());
+
+		s.setLocation(new WorldPoint(PLAYER.getX() + 20, PLAYER.getY(), PLAYER.getPlane()));
+		SpotRanker.rank(PLAYER, TICK, Arrays.asList(s), PARAMS);
+
+		assertEquals(0, s.getRank());
+	}
+
+	/**
+	 * With no known player tile, nothing is ranked.
+	 */
+	@Test
+	public void unknownPlayerRanksNothing()
+	{
+		List<AerialFishSpot> ranked = SpotRanker.rank(null, TICK, Arrays.asList(spot(1, false, 0)), PARAMS);
+
+		assertTrue(ranked.isEmpty());
 	}
 }

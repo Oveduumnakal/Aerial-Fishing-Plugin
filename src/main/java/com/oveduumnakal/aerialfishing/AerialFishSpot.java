@@ -34,7 +34,7 @@ import net.runelite.api.coords.WorldPoint;
  * A single tracked aerial fishing spot at Molch Island.
  *
  * <p>The fields split into two groups. The <i>input</i> fields ({@link #npc},
- * {@link #location}, {@link #firstSeenTick}, {@link #lastMoveTick},
+ * {@link #location}, {@link #lastMoveTick}, {@link #lastMoveTimeMillis},
  * {@link #frenzied}) are maintained from game events by the plugin. The
  * <i>computed</i> fields ({@link #chebyshevDistance} through {@link #rank}) are
  * (re)written every tick by {@link SpotRanker} and read by the overlay.
@@ -48,9 +48,6 @@ public class AerialFishSpot
 {
 	/** The tracked fishing-spot NPC, or {@code null} in tests. */
 	private final NPC npc;
-
-	/** The tick on which this spot was first observed. */
-	private final int firstSeenTick;
 
 	/** The spot's current world tile; reset when the spot relocates. */
 	private WorldPoint location;
@@ -73,9 +70,6 @@ public class AerialFishSpot
 	/** Catch tier used for ranking: pinned to 3 while frenzied, else {@link #catchTicks}. */
 	private int effectiveCatchTicks;
 
-	/** Ticks since {@link #lastMoveTick}. */
-	private int ageTicks;
-
 	/** Estimated ticks before the spot relocates (conservative, clamped at zero). */
 	private int remainingTicks;
 
@@ -87,13 +81,12 @@ public class AerialFishSpot
 	 *
 	 * @param npc the fishing-spot NPC, or {@code null} in tests
 	 * @param location the spot's world tile
-	 * @param firstSeenTick the tick on which the spot was first observed
+	 * @param firstSeenTick the tick on which the spot was first observed, taken as its last move
 	 */
 	public AerialFishSpot(NPC npc, WorldPoint location, int firstSeenTick)
 	{
 		this.npc = npc;
 		this.location = location;
-		this.firstSeenTick = firstSeenTick;
 		this.lastMoveTick = firstSeenTick;
 		this.lastMoveTimeMillis = System.currentTimeMillis();
 	}

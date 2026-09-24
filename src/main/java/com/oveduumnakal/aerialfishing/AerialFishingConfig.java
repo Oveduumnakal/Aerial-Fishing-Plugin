@@ -155,15 +155,16 @@ public interface AerialFishingConfig extends Config
 
 	/**
 	 * Whether to switch off RuneLite's built-in Fishing plugin spot highlights while
-	 * this plugin is active, so only the ranked spots are marked. The built-in
-	 * settings are restored when this plugin stops.
+	 * aerial spots are nearby, so only the ranked spots are marked. The built-in
+	 * settings are restored on leaving the spots or when this plugin stops, and on
+	 * the next start if the client exited while they were switched off.
 	 *
 	 * @return {@code true} to suppress the built-in highlights
 	 */
 	@ConfigItem(
 		keyName = "hideBuiltinHighlights",
 		name = "Hide built-in highlights",
-		description = "Hide RuneLite's Fishing plugin spot tiles/icons so only ranked spots show",
+		description = "While aerial spots are nearby, hide RuneLite's Fishing plugin spot tiles/icons/names",
 		section = displaySection,
 		position = 5
 	)

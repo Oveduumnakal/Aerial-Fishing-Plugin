@@ -47,6 +47,7 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.gameval.NpcID;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -71,7 +72,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 public class AerialFishingPlugin extends Plugin
 {
 	/** NPC id of a frenzied aerial fishing spot (a distinct id from the normal spot). */
-	private static final int FISHING_SPOT_AERIAL_FRENZY = 16346;
+	private static final int FISHING_SPOT_AERIAL_FRENZY = NpcID.FISHING_SPOT_AERIAL_LARGE;
 
 	/** NPC id of the cormorant that flies from its perch out to a spot and back. */
 	private static final int FISHING_CORMORANT = NpcID.FISHING_CORMORANT_ON_PERCH;
@@ -84,6 +85,16 @@ public class AerialFishingPlugin extends Plugin
 
 	/** Built-in Fishing plugin keys whose spot highlights this plugin can suppress. */
 	private static final String[] FISHING_HIGHLIGHT_KEYS = {"showTiles", "showIcons", "showNames"};
+
+	/**
+	 * Prefix of the keys, in this plugin's own config group, that hold the built-in
+	 * values from before suppression. Persisted so they survive a client exit, which
+	 * does not run {@link #shutDown()}.
+	 */
+	private static final String SAVED_FISHING_PREFIX = "savedFishing.";
+
+	/** Key, in this plugin's own config group, marking the built-in highlights as suppressed. */
+	private static final String SUPPRESSED_KEY = "builtinSuppressed";
 
 	@Inject
 	private Client client;
@@ -101,10 +112,12 @@ public class AerialFishingPlugin extends Plugin
 	@Inject
 	private ConfigManager configManager;
 
+	@Inject
+	private ClientThread clientThread;
+
 	private final Map<Integer, AerialFishSpot> spots = new HashMap<>();
 
-	private final Map<String, String> savedFishingConfig = new HashMap<>();
-
+	/** Whether the built-in highlights are currently switched off by this plugin. */
 	private boolean builtinSuppressed;
 
 	private int tickCounter;
@@ -122,13 +135,17 @@ public class AerialFishingPlugin extends Plugin
 	private int activeStartTick;
 
 	/**
-	 * Registers the overlay when the plugin starts.
+	 * Registers the overlay when the plugin starts, and restores any built-in
+	 * highlights left switched off by a previous session that exited without
+	 * stopping the plugin.
 	 */
 	@Override
 	protected void startUp()
 	{
 		overlayManager.add(overlay);
-		applyBuiltinSuppression();
+		builtinSuppressed = Boolean.parseBoolean(
+			configManager.getConfiguration(AerialFishingConfig.GROUP, SUPPRESSED_KEY));
+		restoreBuiltinHighlights();
 	}
 
 	/**
@@ -167,7 +184,7 @@ public class AerialFishingPlugin extends Plugin
 			return;
 
 		if ("hideBuiltinHighlights".equals(event.getKey()))
-			applyBuiltinSuppression();
+			clientThread.invoke(this::updateBuiltinSuppression);
 	}
 
 	/**
@@ -203,6 +220,7 @@ public class AerialFishingPlugin extends Plugin
 		}
 
 		syncSpots();
+		updateBuiltinSuppression();
 		if (spots.isEmpty())
 		{
 			rankedSpots = Collections.emptyList();
@@ -210,10 +228,7 @@ public class AerialFishingPlugin extends Plugin
 			return;
 		}
 
-		RankingParams params = new RankingParams(
-			config.minLifeTicks(),
-			config.maxLifeTicks(),
-			config.maxReachDistance());
+		RankingParams params = new RankingParams(config.minLifeTicks(), config.maxReachDistance());
 
 		rankedSpots = SpotRanker.rank(local.getWorldLocation(), tickCounter,
 			new ArrayList<>(spots.values()), params);
@@ -367,20 +382,21 @@ public class AerialFishingPlugin extends Plugin
 	}
 
 	/**
-	 * Applies or lifts built-in-highlight suppression to match the config toggle.
+	 * Suppresses the built-in highlights only while the toggle is on and aerial
+	 * spots are in the scene, so fishing elsewhere keeps the built-in highlights.
 	 */
-	private void applyBuiltinSuppression()
+	private void updateBuiltinSuppression()
 	{
-		if (config.hideBuiltinHighlights())
+		if (config.hideBuiltinHighlights() && !spots.isEmpty())
 			suppressBuiltinHighlights();
 		else
 			restoreBuiltinHighlights();
 	}
 
 	/**
-	 * Switches off the built-in Fishing plugin's spot highlights, remembering the
-	 * previous values so they can be restored, so only this plugin's ranked spots
-	 * are marked.
+	 * Switches off the built-in Fishing plugin's spot highlights so only this
+	 * plugin's ranked spots are marked. The previous values are saved to this
+	 * plugin's config group first, so they can be restored even after a client exit.
 	 */
 	private void suppressBuiltinHighlights()
 	{
@@ -389,16 +405,22 @@ public class AerialFishingPlugin extends Plugin
 
 		for (String key : FISHING_HIGHLIGHT_KEYS)
 		{
-			savedFishingConfig.put(key, configManager.getConfiguration(FISHING_GROUP, key));
+			String previous = configManager.getConfiguration(FISHING_GROUP, key);
+			if (previous == null)
+				configManager.unsetConfiguration(AerialFishingConfig.GROUP, SAVED_FISHING_PREFIX + key);
+			else
+				configManager.setConfiguration(AerialFishingConfig.GROUP, SAVED_FISHING_PREFIX + key, previous);
+
 			configManager.setConfiguration(FISHING_GROUP, key, false);
 		}
 
+		configManager.setConfiguration(AerialFishingConfig.GROUP, SUPPRESSED_KEY, true);
 		builtinSuppressed = true;
 	}
 
 	/**
-	 * Restores the built-in Fishing plugin's spot-highlight settings to what they
-	 * were before suppression.
+	 * Restores the built-in Fishing plugin's spot-highlight settings to the values
+	 * saved before suppression, then clears the saved values.
 	 */
 	private void restoreBuiltinHighlights()
 	{
@@ -407,14 +429,17 @@ public class AerialFishingPlugin extends Plugin
 
 		for (String key : FISHING_HIGHLIGHT_KEYS)
 		{
-			String previous = savedFishingConfig.get(key);
+			String savedKey = SAVED_FISHING_PREFIX + key;
+			String previous = configManager.getConfiguration(AerialFishingConfig.GROUP, savedKey);
 			if (previous == null)
 				configManager.unsetConfiguration(FISHING_GROUP, key);
 			else
 				configManager.setConfiguration(FISHING_GROUP, key, previous);
+
+			configManager.unsetConfiguration(AerialFishingConfig.GROUP, savedKey);
 		}
 
-		savedFishingConfig.clear();
+		configManager.unsetConfiguration(AerialFishingConfig.GROUP, SUPPRESSED_KEY);
 		builtinSuppressed = false;
 	}
 

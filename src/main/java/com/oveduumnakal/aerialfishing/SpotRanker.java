@@ -84,8 +84,8 @@ public final class SpotRanker
 	}
 
 	/**
-	 * Recomputes every spot's derived fields, drops unreachable or about-to-move
-	 * spots, and returns the remainder sorted best-first with {@code rank} set
+	 * Recomputes every spot's derived fields, drops spots beyond the max reach
+	 * distance, and returns the remainder sorted best-first with {@code rank} set
 	 * (1 = click next). The input collection is not modified; the returned list is
 	 * a new list referencing the same spot objects.
 	 *
@@ -119,7 +119,7 @@ public final class SpotRanker
 	 * @param player the player's world tile, or {@code null} if unknown
 	 * @param currentTick the current game tick counter
 	 * @param params the tuning inputs
-	 * @return {@code true} if the spot is reachable and worth clicking
+	 * @return {@code true} if the spot is within the max reach distance
 	 */
 	private static boolean evaluate(AerialFishSpot spot, WorldPoint player, int currentTick,
 		RankingParams params)
@@ -132,7 +132,6 @@ public final class SpotRanker
 		spot.setChebyshevDistance(distance);
 		spot.setCatchTicks(catchTicks);
 		spot.setEffectiveCatchTicks(spot.isFrenzied() ? FRENZY_TIER : catchTicks);
-		spot.setAgeTicks(age);
 		spot.setRemainingTicks(remaining);
 		spot.setRank(0);
 

@@ -37,9 +37,6 @@ public class RankingParams
 	/** Lower bound of a spot's lifetime, in ticks; drives the remaining-life tie-break. */
 	int minLifeTicks;
 
-	/** Upper bound of a spot's lifetime, in ticks, used for the display countdown. */
-	int maxLifeTicks;
-
 	/** Maximum Chebyshev distance at which a spot is still worth showing. */
 	int maxReachDistance;
 }
