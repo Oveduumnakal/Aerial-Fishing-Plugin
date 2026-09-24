@@ -35,7 +35,9 @@ Aerial Fishing Helper is a RuneLite plugin for aerial fishing at Molch Island. I
 
 - **Tune the overlay to taste**
 
-  Choose how many spots to number, whether to show the timers, and the colors for the best spot, the rest, and expiring spots. Advanced tick constants — a spot's expected lifetime and how far out to still consider a spot — are exposed for fine-tuning, and an experimental frenzy toggle is there for once a frenzied pool's in-game signal is confirmed.
+  Choose how many spots to number, whether to show the catch-tick label, how each spot's expiry is shown — none, a smooth countdown pie, or a seconds countdown to a tenth of a second — and the colors for the best spot, the rest, and expiring spots. Advanced tick constants — a spot's expected lifetime and how far out to still consider a spot — are exposed for fine-tuning. Frenzied pools are detected automatically and ranked as a flat 3-tick tier; a toggle turns that off if you'd rather rank purely by distance.
+
+> **Tip:** RuneLite's built-in **Fishing** plugin also highlights these spots. To avoid two sets of tiles fighting, turn off its *Show fishing spot tiles* / *Show fishing spot icons* options (or disable the Fishing plugin) and let Aerial Fishing Helper own the visuals.
 
 ## Links
 
