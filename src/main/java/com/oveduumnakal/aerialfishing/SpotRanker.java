@@ -41,9 +41,9 @@ import net.runelite.api.coords.WorldPoint;
  *
  * <p>Catch time comes from Chebyshev distance: 2 tiles or nearer catches in 1
  * tick, 3-4 tiles in 2, exactly 5 tiles in 3, and farther spots fall to a slower
- * far tier. A spot is dropped from the ranking when it sits beyond the
- * {@link RankingParams} max reach distance or is likely to relocate before the
- * cormorant could reach it.
+ * far tier. A spot is dropped from the ranking only when it sits beyond the
+ * {@link RankingParams} max reach distance; how soon it may relocate feeds the
+ * tie-break and the overlay's expiry color, but never removes it.
  *
  * <p>All methods are static and side-effect only the passed spots; the class holds
  * no state so it can be unit-tested on plain data with no live client.
@@ -136,10 +136,7 @@ public final class SpotRanker
 		spot.setRemainingTicks(remaining);
 		spot.setRank(0);
 
-		if (distance > params.getMaxReachDistance())
-			return false;
-
-		return remaining >= catchTicks + params.getReachBufferTicks();
+		return distance <= params.getMaxReachDistance();
 	}
 
 	/**

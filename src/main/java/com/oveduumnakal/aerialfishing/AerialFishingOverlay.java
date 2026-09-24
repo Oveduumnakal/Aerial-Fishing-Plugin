@@ -28,6 +28,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
+import java.awt.image.BufferedImage;
 import javax.inject.Inject;
 
 import net.runelite.api.Client;
@@ -40,6 +41,7 @@ import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 import net.runelite.client.ui.overlay.components.ProgressPieComponent;
+import net.runelite.client.util.ImageUtil;
 
 /**
  * Draws the ranked aerial fishing spots: a tile outline plus a priority number on
@@ -51,15 +53,45 @@ public class AerialFishingOverlay extends Overlay
 	/** Below this fraction of remaining life, a spot is drawn in the expiring color. */
 	private static final float EXPIRING_FRACTION = 0.25f;
 
-	/** Vertical offset above the spot for the rank number. */
-	private static final int RANK_HEIGHT_OFFSET = 40;
+	/** Duration of one game tick, in milliseconds, for smooth sub-tick countdowns. */
+	private static final long TICK_MS = 600L;
 
-	/** Vertical offset above the spot for the catch-tick label. */
-	private static final int LABEL_HEIGHT_OFFSET = 20;
+	/** Fixed world-height offset for the rank number, anchored to the tile (not the model). */
+	private static final int RANK_Z_OFFSET = 80;
+
+	/** Fixed world-height offset for the catch-tick label, below the rank number. */
+	private static final int LABEL_Z_OFFSET = 30;
+
+	/** World-height offset for the seconds countdown, at the tile. */
+	private static final int SECONDS_Z_OFFSET = 0;
+
+	/** World-height offset for the bird animation, hovering over the water. */
+	private static final int BIRD_Z_OFFSET = 40;
+
+	/** Screen-space downward nudge (pixels) applied to the drawn bird. */
+	private static final int BIRD_Y_OFFSET = 10;
+
+	/** Number of frames in the bird flight strip. */
+	private static final int BIRD_FRAMES = 8;
+
+	/** Milliseconds each bird frame is shown, giving roughly a 14 fps flap. */
+	private static final long BIRD_FRAME_MS = 72L;
+
+	/** Classpath name of the horizontal bird flight strip. */
+	private static final String BIRD_STRIP = "bird_flight_strip.png";
 
 	private final AerialFishingPlugin plugin;
 
 	private final Client client;
+
+	/** The native-size flight frames sliced from the strip, or {@code null} if it failed to load. */
+	private final BufferedImage[] birdFrames;
+
+	/** The flight frames scaled to {@link #scaledHeight}, rebuilt when the config size changes. */
+	private BufferedImage[] scaledFrames;
+
+	/** The height, in pixels, the {@link #scaledFrames} are currently scaled to. */
+	private int scaledHeight = -1;
 
 	/**
 	 * Creates the overlay bound above the scene.
@@ -72,8 +104,29 @@ public class AerialFishingOverlay extends Overlay
 	{
 		this.plugin = plugin;
 		this.client = client;
+		this.birdFrames = loadBirdFrames();
 		setPosition(OverlayPosition.DYNAMIC);
 		setLayer(OverlayLayer.ABOVE_SCENE);
+	}
+
+	/**
+	 * Loads the flight strip and slices it into equal-width frames.
+	 *
+	 * @return the sliced frames, or {@code null} if the strip could not be loaded
+	 */
+	private BufferedImage[] loadBirdFrames()
+	{
+		BufferedImage strip = ImageUtil.loadImageResource(getClass(), BIRD_STRIP);
+		if (strip == null)
+			return null;
+
+		int frameWidth = strip.getWidth() / BIRD_FRAMES;
+		int height = strip.getHeight();
+		BufferedImage[] frames = new BufferedImage[BIRD_FRAMES];
+		for (int i = 0; i < BIRD_FRAMES; i++)
+			frames[i] = strip.getSubimage(i * frameWidth, 0, frameWidth, height);
+
+		return frames;
 	}
 
 	/**
@@ -103,14 +156,72 @@ public class AerialFishingOverlay extends Overlay
 			if (config.showRankNumbers())
 				drawRank(graphics, npc, spot.getRank(), color);
 
-			if (config.showTimers())
-			{
+			if (config.showCatchTicks())
 				drawTickLabel(graphics, npc, spot, color);
-				drawExpiryPie(graphics, npc, spot, config, color);
-			}
+
+			drawExpiry(graphics, npc, spot, config, color);
 		}
 
+		drawBird(graphics, config);
 		return null;
+	}
+
+	/**
+	 * Draws the current flight frame on the spot the player is fishing, if the bird
+	 * animation is enabled and a spot is active. The frame is chosen from wall-clock
+	 * time so the flap runs smoothly regardless of the client frame rate.
+	 *
+	 * @param graphics the overlay graphics context
+	 * @param config the plugin config
+	 */
+	private void drawBird(Graphics2D graphics, AerialFishingConfig config)
+	{
+		if (!config.showBirdAnimation() || birdFrames == null)
+			return;
+
+		AerialFishSpot spot = plugin.getActiveBirdSpot();
+		if (spot == null)
+			return;
+
+		NPC npc = spot.getNpc();
+		if (npc == null)
+			return;
+
+		LocalPoint localPoint = npc.getLocalLocation();
+		if (localPoint == null)
+			return;
+
+		BufferedImage[] scaled = ensureScaled(config.birdAnimationSize());
+		int index = (int) (System.currentTimeMillis() / BIRD_FRAME_MS % BIRD_FRAMES);
+		BufferedImage frame = scaled[index];
+
+		Point location = Perspective.getCanvasImageLocation(client, localPoint, frame, BIRD_Z_OFFSET);
+		if (location != null)
+			graphics.drawImage(frame, location.getX(), location.getY() + BIRD_Y_OFFSET, null);
+	}
+
+	/**
+	 * Returns the flight frames scaled to the given height, rebuilding them only when
+	 * the requested height has changed since the last call.
+	 *
+	 * @param height the target frame height in pixels
+	 * @return the scaled frames
+	 */
+	private BufferedImage[] ensureScaled(int height)
+	{
+		if (scaledFrames != null && scaledHeight == height)
+			return scaledFrames;
+
+		int nativeWidth = birdFrames[0].getWidth();
+		int nativeHeight = birdFrames[0].getHeight();
+		int width = Math.max(1, Math.round(height * (nativeWidth / (float) nativeHeight)));
+		BufferedImage[] scaled = new BufferedImage[BIRD_FRAMES];
+		for (int i = 0; i < BIRD_FRAMES; i++)
+			scaled[i] = ImageUtil.resizeImage(birdFrames[i], width, height);
+
+		scaledFrames = scaled;
+		scaledHeight = height;
+		return scaled;
 	}
 
 	/**
@@ -123,7 +234,7 @@ public class AerialFishingOverlay extends Overlay
 	 */
 	private Color colorFor(AerialFishSpot spot, AerialFishingConfig config)
 	{
-		if (lifeFraction(spot, config) < EXPIRING_FRACTION)
+		if (remainingFraction(spot, config) < EXPIRING_FRACTION)
 			return config.expiringColor();
 
 		if (spot.getRank() == 1)
@@ -157,7 +268,7 @@ public class AerialFishingOverlay extends Overlay
 	private void drawRank(Graphics2D graphics, NPC npc, int rank, Color color)
 	{
 		String text = Integer.toString(rank);
-		Point location = npc.getCanvasTextLocation(graphics, text, npc.getLogicalHeight() + RANK_HEIGHT_OFFSET);
+		Point location = tileText(graphics, npc, text, RANK_Z_OFFSET);
 		if (location != null)
 			OverlayUtil.renderTextLocation(graphics, location, text, color);
 	}
@@ -173,13 +284,51 @@ public class AerialFishingOverlay extends Overlay
 	private void drawTickLabel(Graphics2D graphics, NPC npc, AerialFishSpot spot, Color color)
 	{
 		String text = spot.getCatchTicks() + "t" + (spot.isFrenzied() ? "*" : "");
-		Point location = npc.getCanvasTextLocation(graphics, text, npc.getLogicalHeight() + LABEL_HEIGHT_OFFSET);
+		Point location = tileText(graphics, npc, text, LABEL_Z_OFFSET);
 		if (location != null)
 			OverlayUtil.renderTextLocation(graphics, location, text, color);
 	}
 
 	/**
-	 * Draws a countdown pie showing how much of the spot's expected life remains.
+	 * Projects text to a fixed height above the spot's tile, so it stays put while
+	 * the spot's model animates (which is what makes model-anchored text jump).
+	 *
+	 * @param graphics the overlay graphics context
+	 * @param npc the spot NPC
+	 * @param text the text to place
+	 * @param zOffset the fixed world-height offset above the tile
+	 * @return the canvas point for the text, or {@code null} if off-screen
+	 */
+	private Point tileText(Graphics2D graphics, NPC npc, String text, int zOffset)
+	{
+		LocalPoint localPoint = npc.getLocalLocation();
+		if (localPoint == null)
+			return null;
+
+		return Perspective.getCanvasTextLocation(client, graphics, localPoint, text, zOffset);
+	}
+
+	/**
+	 * Draws the configured expiry indicator (none, pie, or seconds) for a spot.
+	 *
+	 * @param graphics the overlay graphics context
+	 * @param npc the spot NPC
+	 * @param spot the spot being drawn
+	 * @param config the plugin config
+	 * @param color the indicator color
+	 */
+	private void drawExpiry(Graphics2D graphics, NPC npc, AerialFishSpot spot,
+		AerialFishingConfig config, Color color)
+	{
+		ExpiryDisplay mode = config.expiryDisplay();
+		if (mode == ExpiryDisplay.PIE)
+			drawExpiryPie(graphics, npc, spot, config, color);
+		else if (mode == ExpiryDisplay.SECONDS)
+			drawExpirySeconds(graphics, npc, spot, config, color);
+	}
+
+	/**
+	 * Draws a smoothly-shrinking countdown pie at the spot.
 	 *
 	 * @param graphics the overlay graphics context
 	 * @param npc the spot NPC
@@ -203,21 +352,65 @@ public class AerialFishingOverlay extends Overlay
 		pie.setFill(color);
 		pie.setBorderColor(color);
 		pie.setPosition(location);
-		pie.setProgress(lifeFraction(spot, config));
+		pie.setProgress(remainingFraction(spot, config));
 		pie.render(graphics);
 	}
 
 	/**
-	 * Fraction of the spot's maximum expected life still remaining, in {@code [0, 1]}.
+	 * Draws a seconds countdown (one decimal place) at the spot.
+	 *
+	 * @param graphics the overlay graphics context
+	 * @param npc the spot NPC
+	 * @param spot the spot being drawn
+	 * @param config the plugin config
+	 * @param color the text color
+	 */
+	private void drawExpirySeconds(Graphics2D graphics, NPC npc, AerialFishSpot spot,
+		AerialFishingConfig config, Color color)
+	{
+		String text = String.format("%.1f", remainingSeconds(spot, config));
+		Point location = tileText(graphics, npc, text, SECONDS_Z_OFFSET);
+		if (location != null)
+			OverlayUtil.renderTextLocation(graphics, location, text, color);
+	}
+
+	/**
+	 * Milliseconds until the spot is expected to relocate, clamped to {@code [0, full]},
+	 * interpolated from wall-clock time so it advances every frame rather than every tick.
+	 *
+	 * @param spot the spot being drawn
+	 * @param config the plugin config
+	 * @return the remaining time in milliseconds
+	 */
+	private long remainingMillis(AerialFishSpot spot, AerialFishingConfig config)
+	{
+		long full = Math.max(1L, (long) config.minLifeTicks() * TICK_MS);
+		long elapsed = System.currentTimeMillis() - spot.getLastMoveTimeMillis();
+		return Math.max(0L, Math.min(full, full - elapsed));
+	}
+
+	/**
+	 * Fraction of the spot's expected life still remaining, in {@code [0, 1]}.
 	 *
 	 * @param spot the spot being drawn
 	 * @param config the plugin config
 	 * @return the remaining-life fraction
 	 */
-	private float lifeFraction(AerialFishSpot spot, AerialFishingConfig config)
+	private float remainingFraction(AerialFishSpot spot, AerialFishingConfig config)
 	{
-		int maxLife = Math.max(1, config.maxLifeTicks());
-		float fraction = (float) (maxLife - spot.getAgeTicks()) / maxLife;
-		return Math.max(0f, Math.min(1f, fraction));
+		long full = Math.max(1L, (long) config.minLifeTicks() * TICK_MS);
+		return remainingMillis(spot, config) / (float) full;
+	}
+
+	/**
+	 * Seconds until the spot is expected to relocate.
+	 *
+	 * @param spot the spot being drawn
+	 * @param config the plugin config
+	 * @return the remaining time in seconds
+	 */
+	private double remainingSeconds(AerialFishSpot spot, AerialFishingConfig config)
+	{
+		return remainingMillis(spot, config) / 1000.0;
 	}
 }

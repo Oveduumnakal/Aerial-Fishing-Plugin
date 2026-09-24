@@ -24,22 +24,40 @@
  */
 package com.oveduumnakal.aerialfishing;
 
-import lombok.Value;
-
 /**
- * Immutable tuning inputs for {@link SpotRanker}, built from config in the plugin
- * and passed to the ranker so the ranking logic stays free of the RuneLite config
- * types and is unit-testable in isolation.
+ * How a spot's estimated time-until-it-relocates is shown on the overlay.
  */
-@Value
-public class RankingParams
+public enum ExpiryDisplay
 {
-	/** Lower bound of a spot's lifetime, in ticks; drives the remaining-life tie-break. */
-	int minLifeTicks;
+	/** No expiry indicator. */
+	NONE("None"),
 
-	/** Upper bound of a spot's lifetime, in ticks, used for the display countdown. */
-	int maxLifeTicks;
+	/** A shrinking countdown pie at the spot. */
+	PIE("Pie"),
 
-	/** Maximum Chebyshev distance at which a spot is still worth showing. */
-	int maxReachDistance;
+	/** A seconds countdown to one decimal place. */
+	SECONDS("Seconds");
+
+	private final String label;
+
+	/**
+	 * Creates a display mode.
+	 *
+	 * @param label the label shown in the config dropdown
+	 */
+	ExpiryDisplay(String label)
+	{
+		this.label = label;
+	}
+
+	/**
+	 * Returns the dropdown label.
+	 *
+	 * @return the label
+	 */
+	@Override
+	public String toString()
+	{
+		return label;
+	}
 }

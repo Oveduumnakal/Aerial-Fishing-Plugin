@@ -58,6 +58,9 @@ public class AerialFishSpot
 	/** The tick on which the spot last changed tiles (age is measured from here). */
 	private int lastMoveTick;
 
+	/** Wall-clock time (ms) the spot last changed tiles, for smooth per-frame countdown. */
+	private long lastMoveTimeMillis;
+
 	/** Whether the spot is currently frenzied (repeats a flat 3-tick catch). */
 	private boolean frenzied;
 
@@ -92,5 +95,6 @@ public class AerialFishSpot
 		this.location = location;
 		this.firstSeenTick = firstSeenTick;
 		this.lastMoveTick = firstSeenTick;
+		this.lastMoveTimeMillis = System.currentTimeMillis();
 	}
 }

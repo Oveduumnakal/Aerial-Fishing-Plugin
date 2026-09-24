@@ -102,20 +102,37 @@ public interface AerialFishingConfig extends Config
 	}
 
 	/**
-	 * Whether to draw the catch-tick label and the expiry countdown pie.
+	 * Whether to draw each spot's estimated catch time in ticks.
 	 *
-	 * @return {@code true} to show timers
+	 * @return {@code true} to show the catch-tick label
 	 */
 	@ConfigItem(
-		keyName = "showTimers",
-		name = "Show tick and expiry timers",
-		description = "Draw each spot's catch-tick estimate and a countdown until it moves",
+		keyName = "showCatchTicks",
+		name = "Show catch-tick label",
+		description = "Draw each spot's estimated catch time in ticks",
 		section = displaySection,
 		position = 2
 	)
-	default boolean showTimers()
+	default boolean showCatchTicks()
 	{
 		return true;
+	}
+
+	/**
+	 * How to show each spot's estimated time until it relocates.
+	 *
+	 * @return the expiry display mode
+	 */
+	@ConfigItem(
+		keyName = "expiryDisplay",
+		name = "Expiry display",
+		description = "How soon a spot will move: none, a countdown pie, or a seconds countdown",
+		section = displaySection,
+		position = 3
+	)
+	default ExpiryDisplay expiryDisplay()
+	{
+		return ExpiryDisplay.PIE;
 	}
 
 	/**
@@ -123,54 +140,92 @@ public interface AerialFishingConfig extends Config
 	 *
 	 * @return the highest rank number to show
 	 */
-	@Range(min = 1, max = 10)
+	@Range(min = 1, max = 15)
 	@ConfigItem(
 		keyName = "maxRankShown",
 		name = "Max spots ranked",
 		description = "How many spots to number, best first",
 		section = displaySection,
-		position = 3
+		position = 4
 	)
 	default int maxRankShown()
 	{
-		return 3;
+		return 8;
 	}
 
 	/**
-	 * Whether to treat spots carrying {@link #frenzySpotanimId()} as frenzied.
+	 * Whether to switch off RuneLite's built-in Fishing plugin spot highlights while
+	 * this plugin is active, so only the ranked spots are marked. The built-in
+	 * settings are restored when this plugin stops.
 	 *
-	 * <p>Off by default: aerial frenzy has no confirmed client-side signal, so this
-	 * stays opt-in until a spot-anim id is verified in game.
+	 * @return {@code true} to suppress the built-in highlights
+	 */
+	@ConfigItem(
+		keyName = "hideBuiltinHighlights",
+		name = "Hide built-in highlights",
+		description = "Hide RuneLite's Fishing plugin spot tiles/icons so only ranked spots show",
+		section = displaySection,
+		position = 5
+	)
+	default boolean hideBuiltinHighlights()
+	{
+		return true;
+	}
+
+	/**
+	 * Whether to draw the flying-bird animation on a spot from when you click it until
+	 * the cormorant heads back.
 	 *
-	 * @return {@code true} to enable frenzy detection
+	 * @return {@code true} to show the bird animation
+	 */
+	@ConfigItem(
+		keyName = "showBirdAnimation",
+		name = "Show bird animation",
+		description = "Animate a flying bird on the spot you clicked until the cormorant starts returning",
+		section = displaySection,
+		position = 6
+	)
+	default boolean showBirdAnimation()
+	{
+		return true;
+	}
+
+	/**
+	 * The on-screen height of the bird animation in pixels.
+	 *
+	 * @return the bird animation height in pixels
+	 */
+	@Range(min = 12, max = 96)
+	@ConfigItem(
+		keyName = "birdAnimationSize",
+		name = "Bird size (px)",
+		description = "On-screen height of the bird animation",
+		section = displaySection,
+		position = 7
+	)
+	default int birdAnimationSize()
+	{
+		return 16;
+	}
+
+	/**
+	 * Whether to treat frenzied spots (a distinct NPC id) as the 3-tick tier.
+	 *
+	 * <p>On by default. A frenzied spot still ranks below any 1- or 2-tick spot, so
+	 * this only changes where a frenzied pool sits within the 3-tick tier.
+	 *
+	 * @return {@code true} to factor frenzy into the ranking
 	 */
 	@ConfigItem(
 		keyName = "detectFrenzy",
-		name = "Detect frenzied spots",
-		description = "Pin spots with the configured spot-anim to the 3-tick tier (experimental)",
+		name = "Prioritize frenzied spots",
+		description = "Rank frenzied spots as a flat 3-tick tier (still below any 1- or 2-tick spot)",
 		section = tuningSection,
 		position = 0
 	)
 	default boolean detectFrenzy()
 	{
-		return false;
-	}
-
-	/**
-	 * The spot-anim (graphic) id that marks a frenzied spot when detection is on.
-	 *
-	 * @return the frenzy spot-anim id, or a negative value for none
-	 */
-	@ConfigItem(
-		keyName = "frenzySpotanimId",
-		name = "Frenzy spot-anim id",
-		description = "Graphic id that identifies a frenzied spot (advanced; -1 disables)",
-		section = tuningSection,
-		position = 1
-	)
-	default int frenzySpotanimId()
-	{
-		return -1;
+		return true;
 	}
 
 	/**
@@ -182,7 +237,7 @@ public interface AerialFishingConfig extends Config
 	@ConfigItem(
 		keyName = "minLifeTicks",
 		name = "Min spot life (ticks)",
-		description = "Assume a spot may relocate this soon; used to skip spots about to move",
+		description = "Earliest a spot may relocate; drives the expiry countdown so it empties before a spot moves",
 		section = tuningSection,
 		position = 2
 	)
@@ -192,7 +247,8 @@ public interface AerialFishingConfig extends Config
 	}
 
 	/**
-	 * The upper bound of a spot's lifetime in ticks, used for the countdown pie.
+	 * The upper bound of a spot's lifetime in ticks, used as the active-bird safety
+	 * timeout.
 	 *
 	 * @return the maximum spot lifetime in ticks
 	 */
@@ -200,7 +256,7 @@ public interface AerialFishingConfig extends Config
 	@ConfigItem(
 		keyName = "maxLifeTicks",
 		name = "Max spot life (ticks)",
-		description = "Longest a spot is expected to stay before relocating",
+		description = "Longest a spot is expected to stay; caps how long the bird animation can linger",
 		section = tuningSection,
 		position = 3
 	)
@@ -210,39 +266,21 @@ public interface AerialFishingConfig extends Config
 	}
 
 	/**
-	 * The safety margin in ticks added to catch time when testing reachability.
-	 *
-	 * @return the reach buffer in ticks
-	 */
-	@Range(min = 0, max = 5)
-	@ConfigItem(
-		keyName = "reachBufferTicks",
-		name = "Reach buffer (ticks)",
-		description = "Extra ticks required beyond catch time before trusting a spot",
-		section = tuningSection,
-		position = 4
-	)
-	default int reachBufferTicks()
-	{
-		return 1;
-	}
-
-	/**
 	 * The maximum Chebyshev distance at which a spot is still shown.
 	 *
 	 * @return the maximum reach distance in tiles
 	 */
-	@Range(min = 5, max = 20)
+	@Range(min = 5, max = 25)
 	@ConfigItem(
 		keyName = "maxReachDistance",
 		name = "Max reach (tiles)",
 		description = "Ignore spots farther than this many tiles from you",
 		section = tuningSection,
-		position = 5
+		position = 4
 	)
 	default int maxReachDistance()
 	{
-		return 10;
+		return 15;
 	}
 
 	/**

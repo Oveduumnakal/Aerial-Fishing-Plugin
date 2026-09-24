@@ -45,7 +45,7 @@ public class SpotRankerTest
 
 	private static final WorldPoint PLAYER = new WorldPoint(3000, 3000, 0);
 
-	private static final RankingParams PARAMS = new RankingParams(12, 20, 1, 10);
+	private static final RankingParams PARAMS = new RankingParams(12, 20, 15);
 
 	/**
 	 * Builds a fresh spot at the given Chebyshev distance east of the player.
@@ -84,18 +84,20 @@ public class SpotRankerTest
 	}
 
 	/**
-	 * A spot that will relocate before the cormorant could reach it is dropped.
+	 * An aging spot is kept in the ranking (expiry only affects order/color, never
+	 * removes a still-fishable spot); the fresher spot ranks ahead.
 	 */
 	@Test
-	public void expiringSpotIsFiltered()
+	public void agingSpotIsKeptButRanksAfterFresh()
 	{
 		AerialFishSpot fresh = spot(1, false, 0);
-		AerialFishSpot expiring = spot(1, false, 11);
+		AerialFishSpot aging = spot(1, false, 11);
 
-		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(fresh, expiring), PARAMS);
+		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(aging, fresh), PARAMS);
 
 		assertTrue(ranked.contains(fresh));
-		assertFalse(ranked.contains(expiring));
+		assertTrue(ranked.contains(aging));
+		assertEquals(fresh, ranked.get(0));
 	}
 
 	/**
@@ -142,7 +144,7 @@ public class SpotRankerTest
 	public void tooFarSpotIsFiltered()
 	{
 		AerialFishSpot reachable = spot(5, false, 0);
-		AerialFishSpot tooFar = spot(11, false, 0);
+		AerialFishSpot tooFar = spot(20, false, 0);
 
 		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(reachable, tooFar), PARAMS);
 
