@@ -68,8 +68,14 @@ public class AerialFishingOverlay extends Overlay
 	/** World-height offset for the bird animation, hovering over the water. */
 	private static final int BIRD_Z_OFFSET = 40;
 
-	/** Screen-space downward nudge (pixels) applied to the drawn bird. */
-	private static final int BIRD_Y_OFFSET = 10;
+	/**
+	 * Downward nudge applied to the drawn bird, as a fraction of its drawn height, so
+	 * the offset scales with zoom (10px on a 16px bird when first tuned).
+	 */
+	private static final float BIRD_Y_OFFSET_FRACTION = 0.625f;
+
+	/** Smallest height, in pixels, the bird is scaled down to when fully zoomed out. */
+	private static final int BIRD_MIN_HEIGHT = 4;
 
 	/** Number of frames in the bird flight strip. */
 	private static final int BIRD_FRAMES = 8;
@@ -188,16 +194,35 @@ public class AerialFishingOverlay extends Overlay
 			return;
 
 		LocalPoint localPoint = npc.getLocalLocation();
-		if (localPoint == null)
+		Polygon tile = npc.getCanvasTilePoly();
+		if (localPoint == null || tile == null)
 			return;
 
-		BufferedImage[] scaled = ensureScaled(config.birdAnimationSize());
+		BufferedImage[] scaled = ensureScaled(birdHeightFor(tile, config.birdTileScale()));
 		int index = (int) (System.currentTimeMillis() / BIRD_FRAME_MS % BIRD_FRAMES);
 		BufferedImage frame = scaled[index];
 
 		Point location = Perspective.getCanvasImageLocation(client, localPoint, frame, BIRD_Z_OFFSET);
-		if (location != null)
-			graphics.drawImage(frame, location.getX(), location.getY() + BIRD_Y_OFFSET, null);
+		if (location == null)
+			return;
+
+		int nudge = Math.round(frame.getHeight() * BIRD_Y_OFFSET_FRACTION);
+		graphics.drawImage(frame, location.getX(), location.getY() + nudge, null);
+	}
+
+	/**
+	 * The bird height, in pixels, that makes its width the given percentage of the
+	 * tile's on-screen width, keeping the frame's aspect ratio.
+	 *
+	 * @param tile the spot tile's canvas polygon
+	 * @param percent the bird width as a percentage of the tile width
+	 * @return the bird height in pixels, at least {@link #BIRD_MIN_HEIGHT}
+	 */
+	private int birdHeightFor(Polygon tile, int percent)
+	{
+		float width = tile.getBounds().width * percent / 100f;
+		float aspect = birdFrames[0].getHeight() / (float) birdFrames[0].getWidth();
+		return Math.max(BIRD_MIN_HEIGHT, Math.round(width * aspect));
 	}
 
 	/**

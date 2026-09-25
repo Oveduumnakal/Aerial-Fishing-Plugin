@@ -32,6 +32,7 @@ import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Range;
+import net.runelite.client.config.Units;
 
 /**
  * User-facing settings for the Aerial Fishing Helper plugin: what the overlay
@@ -192,21 +193,23 @@ public interface AerialFishingConfig extends Config
 	}
 
 	/**
-	 * The on-screen height of the bird animation in pixels.
+	 * The bird animation's width as a percentage of the spot tile's on-screen width,
+	 * so the bird grows and shrinks with the tile as the camera zooms.
 	 *
-	 * @return the bird animation height in pixels
+	 * @return the bird width as a percentage of the tile width
 	 */
-	@Range(min = 12, max = 96)
+	@Range(min = 10, max = 200)
+	@Units(Units.PERCENT)
 	@ConfigItem(
-		keyName = "birdAnimationSize",
-		name = "Bird size (px)",
-		description = "On-screen height of the bird animation",
+		keyName = "birdTileScale",
+		name = "Bird size",
+		description = "Bird animation width as a percentage of the spot's tile; follows camera zoom",
 		section = displaySection,
 		position = 7
 	)
-	default int birdAnimationSize()
+	default int birdTileScale()
 	{
-		return 16;
+		return 40;
 	}
 
 	/**
