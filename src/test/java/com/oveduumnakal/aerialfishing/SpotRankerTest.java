@@ -153,13 +153,13 @@ public class SpotRankerTest
 	}
 
 	/**
-	 * Catch ticks step up exactly at the 2/3, 4/5, and 5/6 tile boundaries.
+	 * Catch ticks step up exactly at each band edge, and cap at 6 from 10 tiles out.
 	 */
 	@Test
 	public void distanceBandEdges()
 	{
-		int[] distances = {2, 3, 4, 5, 6};
-		int[] expected = {1, 2, 2, 3, 4};
+		int[] distances = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15};
+		int[] expected = {1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6};
 		for (int i = 0; i < distances.length; i++)
 		{
 			AerialFishSpot s = spot(distances[i], false, 0);
@@ -256,5 +256,21 @@ public class SpotRankerTest
 		List<AerialFishSpot> ranked = SpotRanker.rank(null, TICK, Arrays.asList(spot(1, false, 0)), PARAMS);
 
 		assertTrue(ranked.isEmpty());
+	}
+
+	/**
+	 * Past the 3-tick band, a nearer spot still outranks a farther one even when the
+	 * farther spot has more life left.
+	 */
+	@Test
+	public void nearerFarSpotBeatsLongerLivedFartherSpot()
+	{
+		AerialFishSpot sixTiles = spot(6, false, 10);
+		AerialFishSpot twelveTiles = spot(12, false, 0);
+
+		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(twelveTiles, sixTiles), PARAMS);
+
+		assertEquals(sixTiles, ranked.get(0));
+		assertEquals(twelveTiles, ranked.get(1));
 	}
 }

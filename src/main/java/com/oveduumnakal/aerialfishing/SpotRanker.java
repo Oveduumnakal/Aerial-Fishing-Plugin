@@ -39,9 +39,10 @@ import net.runelite.api.coords.WorldPoint;
  * spots catch on a flat 3-tick cycle regardless of distance, so they are pinned
  * to the 3-tick tier and only win ties against a plain 3-tick spot.
  *
- * <p>Catch time comes from Chebyshev distance: 2 tiles or nearer catches in 1
- * tick, 3-4 tiles in 2, exactly 5 tiles in 3, and farther spots fall to a slower
- * far tier. A spot is dropped from the ranking only when it sits beyond the
+ * <p>Catch time comes from Chebyshev distance: 1-2 tiles catches in 1 tick,
+ * 3-4 in 2, 5 in 3, 6-7 in 4, 8-9 in 5, and 10 or more caps at 6. These bands
+ * match the Brain off Aerial Fishing and aerial-cue plugins, the latter measured
+ * from the cormorant projectile's real flight distance. A spot is dropped from the ranking only when it sits beyond the
  * {@link RankingParams} max reach distance; how soon it may relocate feeds the
  * tie-break and the overlay's expiry color, but never removes it.
  *
@@ -59,11 +60,17 @@ public final class SpotRanker
 	/** Distance (inclusive) at which a catch takes 3 ticks. */
 	private static final int THREE_TICK_MAX_DISTANCE = 5;
 
+	/** Distance (inclusive) at which a catch takes 4 ticks. */
+	private static final int FOUR_TICK_MAX_DISTANCE = 7;
+
+	/** Distance (inclusive) at which a catch takes 5 ticks. */
+	private static final int FIVE_TICK_MAX_DISTANCE = 9;
+
+	/** Catch ticks for any spot beyond {@link #FIVE_TICK_MAX_DISTANCE}; the flight time caps here. */
+	private static final int MAX_CATCH_TICKS = 6;
+
 	/** Catch tier a frenzied spot is pinned to. */
 	private static final int FRENZY_TIER = 3;
-
-	/** Catch tier for spots beyond the 3-tick band (still shown, ranked last). */
-	private static final int FAR_TIER = 4;
 
 	/**
 	 * Priority order: lowest catch tier first, then frenzied ahead of plain within
@@ -142,7 +149,7 @@ public final class SpotRanker
 	 * Maps Chebyshev distance to raw catch ticks.
 	 *
 	 * @param distance the Chebyshev tile distance from the player to the spot
-	 * @return the catch time in ticks (1, 2, 3, or the far tier)
+	 * @return the catch time in ticks, from 1 up to {@link #MAX_CATCH_TICKS}
 	 */
 	private static int catchTicksForDistance(int distance)
 	{
@@ -155,7 +162,13 @@ public final class SpotRanker
 		if (distance <= THREE_TICK_MAX_DISTANCE)
 			return 3;
 
-		return FAR_TIER;
+		if (distance <= FOUR_TICK_MAX_DISTANCE)
+			return 4;
+
+		if (distance <= FIVE_TICK_MAX_DISTANCE)
+			return 5;
+
+		return MAX_CATCH_TICKS;
 	}
 
 	/**

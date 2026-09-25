@@ -41,6 +41,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
+import net.runelite.api.NPCComposition;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
@@ -350,7 +351,7 @@ public class AerialFishingPlugin extends Plugin
 
 			int index = npc.getIndex();
 			present.add(index);
-			WorldPoint location = npc.getWorldLocation();
+			WorldPoint location = centreTile(npc);
 			AerialFishSpot spot = spots.get(index);
 			if (spot == null)
 			{
@@ -368,6 +369,25 @@ public class AerialFishingPlugin extends Plugin
 		}
 
 		spots.keySet().removeIf(index -> !present.contains(index));
+	}
+
+	/**
+	 * The NPC's centre tile. {@link NPC#getWorldLocation()} is the south-west tile, which
+	 * for a large NPC such as a frenzied spot is off-centre; the cormorant flies to the
+	 * centre, so catch distance is measured from there.
+	 *
+	 * @param npc the fishing-spot NPC
+	 * @return the centre tile, or {@code null} if the NPC has no location
+	 */
+	private static WorldPoint centreTile(NPC npc)
+	{
+		WorldPoint location = npc.getWorldLocation();
+		NPCComposition composition = npc.getComposition();
+		if (location == null || composition == null)
+			return location;
+
+		int offset = composition.getSize() / 2;
+		return location.dx(offset).dy(offset);
 	}
 
 	/**
