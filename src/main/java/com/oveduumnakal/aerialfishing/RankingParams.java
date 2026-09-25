@@ -39,4 +39,7 @@ public class RankingParams
 
 	/** Maximum Chebyshev distance at which a spot is still worth showing. */
 	int maxReachDistance;
+
+	/** Whether frenzied spots are ranked as the 3-tick tier and win ties within it. */
+	boolean prioritizeFrenzy;
 }

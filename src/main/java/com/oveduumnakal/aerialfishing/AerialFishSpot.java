@@ -58,7 +58,7 @@ public class AerialFishSpot
 	/** Wall-clock time (ms) the spot last changed tiles, for smooth per-frame countdown. */
 	private long lastMoveTimeMillis;
 
-	/** Whether the spot is currently frenzied (repeats a flat 3-tick catch). */
+	/** Whether the spot is a frenzied pool (by NPC id), whether or not ranking prioritizes it. */
 	private boolean frenzied;
 
 	/** Chebyshev tile distance from the player to this spot. */
@@ -67,7 +67,7 @@ public class AerialFishSpot
 	/** Raw catch time in ticks from distance alone, 1 to 6. */
 	private int catchTicks;
 
-	/** Catch tier used for ranking: pinned to 3 while frenzied, else {@link #catchTicks}. */
+	/** Catch tier used for ranking: 3 for a prioritized frenzied spot, else {@link #catchTicks}. */
 	private int effectiveCatchTicks;
 
 	/** Estimated ticks before the spot relocates (conservative, clamped at zero). */

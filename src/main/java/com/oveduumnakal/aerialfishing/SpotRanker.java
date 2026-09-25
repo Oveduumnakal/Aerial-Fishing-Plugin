@@ -73,15 +73,44 @@ public final class SpotRanker
 	private static final int FRENZY_TIER = 3;
 
 	/**
-	 * Priority order: lowest catch tier first, then frenzied ahead of plain within
-	 * a tier, then the longer-lived spot, then the physically closer spot as a
-	 * stable final tie-break.
+	 * Fixed lifetime of a frenzied spot, in ticks. Normal spots last a random 10-19
+	 * ticks (the minimum in {@link RankingParams}); a frenzied spot always lasts
+	 * 28, per the Brain off Aerial Fishing plugin.
 	 */
-	private static final Comparator<AerialFishSpot> PRIORITY =
-		Comparator.comparingInt(AerialFishSpot::getEffectiveCatchTicks)
-			.thenComparing((a, b) -> Boolean.compare(b.isFrenzied(), a.isFrenzied()))
+	public static final int FRENZIED_LIFE_TICKS = 28;
+
+	/**
+	 * Priority order: lowest catch tier first, then frenzied ahead of plain within
+	 * a tier (when frenzy is prioritized), then the longer-lived spot, then the
+	 * physically closer spot as a stable final tie-break.
+	 *
+	 * @param prioritizeFrenzy whether frenzied spots win ties within a tier
+	 * @return the priority comparator
+	 */
+	private static Comparator<AerialFishSpot> priority(boolean prioritizeFrenzy)
+	{
+		Comparator<AerialFishSpot> frenzyFirst = (a, b) -> prioritizeFrenzy
+			? Boolean.compare(b.isFrenzied(), a.isFrenzied())
+			: 0;
+
+		return Comparator.comparingInt(AerialFishSpot::getEffectiveCatchTicks)
+			.thenComparing(frenzyFirst)
 			.thenComparing((a, b) -> Integer.compare(b.getRemainingTicks(), a.getRemainingTicks()))
 			.thenComparingInt(AerialFishSpot::getChebyshevDistance);
+	}
+
+	/**
+	 * A spot's expected lifetime in ticks: fixed for a frenzied spot, otherwise the
+	 * configured minimum.
+	 *
+	 * @param spot the spot
+	 * @param minLifeTicks the configured minimum lifetime of a normal spot
+	 * @return the lifetime in ticks
+	 */
+	public static int lifeTicks(AerialFishSpot spot, int minLifeTicks)
+	{
+		return spot.isFrenzied() ? FRENZIED_LIFE_TICKS : minLifeTicks;
+	}
 
 	/**
 	 * Prevents instantiation of this static-only helper.
@@ -112,7 +141,7 @@ public final class SpotRanker
 				reachable.add(spot);
 		}
 
-		reachable.sort(PRIORITY);
+		reachable.sort(priority(params.isPrioritizeFrenzy()));
 		for (int i = 0; i < reachable.size(); i++)
 			reachable.get(i).setRank(i + 1);
 
@@ -134,11 +163,12 @@ public final class SpotRanker
 		int distance = distance(player, spot.getLocation());
 		int catchTicks = catchTicksForDistance(distance);
 		int age = Math.max(0, currentTick - spot.getLastMoveTick());
-		int remaining = Math.max(0, params.getMinLifeTicks() - age);
+		int remaining = Math.max(0, lifeTicks(spot, params.getMinLifeTicks()) - age);
+		boolean rankAsFrenzy = params.isPrioritizeFrenzy() && spot.isFrenzied();
 
 		spot.setChebyshevDistance(distance);
 		spot.setCatchTicks(catchTicks);
-		spot.setEffectiveCatchTicks(spot.isFrenzied() ? FRENZY_TIER : catchTicks);
+		spot.setEffectiveCatchTicks(rankAsFrenzy ? FRENZY_TIER : catchTicks);
 		spot.setRemainingTicks(remaining);
 		spot.setRank(0);
 
