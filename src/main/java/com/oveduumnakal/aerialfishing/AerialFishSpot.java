@@ -64,7 +64,7 @@ public class AerialFishSpot
 	/** Chebyshev tile distance from the player to this spot. */
 	private int chebyshevDistance;
 
-	/** Raw catch time in ticks from distance alone (1, 2, 3, or a far tier). */
+	/** Raw catch time in ticks from distance alone, 1 to 6. */
 	private int catchTicks;
 
 	/** Catch tier used for ranking: pinned to 3 while frenzied, else {@link #catchTicks}. */

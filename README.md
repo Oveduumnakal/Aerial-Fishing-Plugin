@@ -17,7 +17,7 @@ Aerial Fishing Helper is a RuneLite plugin for aerial fishing at Molch Island. I
 
 - **Faster spots win, frenzy included**
 
-  Catches are quicker the closer a spot is — one tick within two tiles, two ticks at three or four, three ticks at five. The plugin ranks by that catch speed, so a nearby 1- or 2-tick spot always beats a frenzied pool, which catches on a flat 3-tick cycle no matter how close it is. Frenzied pools are treated as their own 3-tick tier and only jump ahead of a plain 3-tick spot, never ahead of something faster.
+  Catches are quicker the closer a spot is — one tick within two tiles, two ticks at three or four, three at five, four at six or seven, five at eight or nine, and six from ten tiles out. The plugin ranks by that catch speed, so a nearby 1- or 2-tick spot always beats a frenzied pool, which catches on a flat 3-tick cycle no matter how close it is. Frenzied pools are treated as their own 3-tick tier and only jump ahead of a plain 3-tick spot, never ahead of something faster.
 
 ### Skips spots about to move
 
