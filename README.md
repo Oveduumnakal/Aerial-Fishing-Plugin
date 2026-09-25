@@ -23,7 +23,11 @@ Aerial Fishing Helper is a RuneLite plugin for aerial fishing at Molch Island. I
 
 - **No wasted clicks**
 
-  Fishing spots drift to a new tile every several seconds. If a spot is likely to move before your cormorant could reach it, the plugin drops it from the ranking instead of sending you after it — so the number you click is one you'll actually catch from.
+  Fishing spots drift to a new tile every several seconds, but a cormorant sent to a spot that's moving still brings back its catch. So every spot in range stays ranked; one that's about to move is simply recolored and loses ties to a longer-lived spot of the same speed.
+
+- **Stand where the spots are**
+
+  The island is wide enough that its center has no spots in close range. A stand-here marker shows the tile that measured the most spots within 1-, 2-, and 3-tick range: the middle of the island's east edge, beside the two tiles where spots appear most often.
 
 ### Tick and expiry timers
 
