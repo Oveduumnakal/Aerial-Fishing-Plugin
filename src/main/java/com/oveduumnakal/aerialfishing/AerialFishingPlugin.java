@@ -229,7 +229,8 @@ public class AerialFishingPlugin extends Plugin
 			return;
 		}
 
-		RankingParams params = new RankingParams(config.minLifeTicks(), config.maxReachDistance());
+		RankingParams params = new RankingParams(config.minLifeTicks(), config.maxReachDistance(),
+			config.detectFrenzy());
 
 		rankedSpots = SpotRanker.rank(local.getWorldLocation(), tickCounter,
 			new ArrayList<>(spots.values()), params);
@@ -340,7 +341,6 @@ public class AerialFishingPlugin extends Plugin
 	 */
 	private void syncSpots()
 	{
-		boolean detectFrenzy = config.detectFrenzy();
 		long now = System.currentTimeMillis();
 		Set<Integer> present = new HashSet<>();
 
@@ -365,7 +365,14 @@ public class AerialFishingPlugin extends Plugin
 				spot.setLastMoveTimeMillis(now);
 			}
 
-			spot.setFrenzied(detectFrenzy && npc.getId() == FISHING_SPOT_AERIAL_FRENZY);
+			boolean frenzied = npc.getId() == FISHING_SPOT_AERIAL_FRENZY;
+			if (frenzied && !spot.isFrenzied())
+			{
+				spot.setLastMoveTick(tickCounter);
+				spot.setLastMoveTimeMillis(now);
+			}
+
+			spot.setFrenzied(frenzied);
 		}
 
 		spots.keySet().removeIf(index -> !present.contains(index));

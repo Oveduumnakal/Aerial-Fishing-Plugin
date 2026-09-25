@@ -409,7 +409,7 @@ public class AerialFishingOverlay extends Overlay
 	 */
 	private long remainingMillis(AerialFishSpot spot, AerialFishingConfig config)
 	{
-		long full = Math.max(1L, (long) config.minLifeTicks() * TICK_MS);
+		long full = lifeMillis(spot, config);
 		long elapsed = System.currentTimeMillis() - spot.getLastMoveTimeMillis();
 		return Math.max(0L, Math.min(full, full - elapsed));
 	}
@@ -423,8 +423,20 @@ public class AerialFishingOverlay extends Overlay
 	 */
 	private float remainingFraction(AerialFishSpot spot, AerialFishingConfig config)
 	{
-		long full = Math.max(1L, (long) config.minLifeTicks() * TICK_MS);
-		return remainingMillis(spot, config) / (float) full;
+		return remainingMillis(spot, config) / (float) lifeMillis(spot, config);
+	}
+
+	/**
+	 * The spot's full expected lifetime in milliseconds: fixed for a frenzied spot,
+	 * otherwise the configured minimum.
+	 *
+	 * @param spot the spot being drawn
+	 * @param config the plugin config
+	 * @return the lifetime in milliseconds, at least 1
+	 */
+	private long lifeMillis(AerialFishSpot spot, AerialFishingConfig config)
+	{
+		return Math.max(1L, (long) SpotRanker.lifeTicks(spot, config.minLifeTicks()) * TICK_MS);
 	}
 
 	/**

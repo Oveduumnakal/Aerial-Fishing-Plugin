@@ -45,7 +45,7 @@ public class SpotRankerTest
 
 	private static final WorldPoint PLAYER = new WorldPoint(3000, 3000, 0);
 
-	private static final RankingParams PARAMS = new RankingParams(12, 15);
+	private static final RankingParams PARAMS = new RankingParams(12, 15, true);
 
 	/**
 	 * Builds a fresh spot at the given Chebyshev distance east of the player.
@@ -272,5 +272,39 @@ public class SpotRankerTest
 
 		assertEquals(sixTiles, ranked.get(0));
 		assertEquals(twelveTiles, ranked.get(1));
+	}
+
+	/**
+	 * A frenzied spot counts down from its fixed 28-tick lifetime; a plain spot of
+	 * the same age uses the configured minimum and has already run out.
+	 */
+	@Test
+	public void frenziedSpotUsesFixedLifetime()
+	{
+		AerialFishSpot frenzy = spot(5, true, 20);
+		AerialFishSpot plain = spot(5, false, 20);
+
+		SpotRanker.rank(PLAYER, TICK, Arrays.asList(frenzy, plain), PARAMS);
+
+		assertEquals(SpotRanker.FRENZIED_LIFE_TICKS - 20, frenzy.getRemainingTicks());
+		assertEquals(0, plain.getRemainingTicks());
+	}
+
+	/**
+	 * With frenzy not prioritized, a frenzied spot ranks by its real distance tier, so
+	 * a nearer plain 3-tick spot beats a frenzied spot 8 tiles away.
+	 */
+	@Test
+	public void unprioritizedFrenzyRanksByDistance()
+	{
+		RankingParams params = new RankingParams(12, 15, false);
+		AerialFishSpot farFrenzy = spot(8, true, 0);
+		AerialFishSpot plainThree = spot(5, false, 0);
+
+		List<AerialFishSpot> ranked = SpotRanker.rank(PLAYER, TICK, Arrays.asList(farFrenzy, plainThree), params);
+
+		assertEquals(plainThree, ranked.get(0));
+		assertEquals(farFrenzy, ranked.get(1));
+		assertEquals(5, farFrenzy.getEffectiveCatchTicks());
 	}
 }

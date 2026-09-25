@@ -241,7 +241,7 @@ public interface AerialFishingConfig extends Config
 	@ConfigItem(
 		keyName = "minLifeTicks",
 		name = "Min spot life (ticks)",
-		description = "Earliest a spot may relocate; drives the expiry countdown so it empties before a spot moves",
+		description = "Earliest a normal spot may relocate; drives its countdown. Frenzied spots last 28 ticks",
 		section = tuningSection,
 		position = 2
 	)
