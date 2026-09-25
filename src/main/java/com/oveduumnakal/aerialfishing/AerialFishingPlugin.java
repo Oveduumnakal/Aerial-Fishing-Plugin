@@ -43,11 +43,13 @@ import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.Player;
+import net.runelite.api.Projectile;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.gameval.NpcID;
+import net.runelite.api.gameval.SpotanimID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -75,11 +77,8 @@ public class AerialFishingPlugin extends Plugin
 	/** NPC id of a frenzied aerial fishing spot (a distinct id from the normal spot). */
 	private static final int FISHING_SPOT_AERIAL_FRENZY = NpcID.FISHING_SPOT_AERIAL_LARGE;
 
-	/** NPC id of the cormorant that flies from its perch out to a spot and back. */
-	private static final int FISHING_CORMORANT = NpcID.FISHING_CORMORANT_ON_PERCH;
-
-	/** Tiles within which a cormorant counts as "at" the active spot. */
-	private static final int CORMORANT_AT_SPOT_TILES = 1;
+	/** Tiles within which a returning bird's start point counts as the active spot. */
+	private static final int RETURN_SOURCE_TILES = 1;
 
 	/** Config group of RuneLite's built-in Fishing plugin. */
 	private static final String FISHING_GROUP = "fishing";
@@ -129,8 +128,11 @@ public class AerialFishingPlugin extends Plugin
 	/** NPC index of the spot the player is currently fishing, or {@code -1} for none. */
 	private int activeSpotIndex = -1;
 
-	/** Whether the cormorant has been seen at the active spot this fishing trip. */
-	private boolean birdArrived;
+	/** The active spot's tile when it was clicked; the bird may return from here if the spot moved. */
+	private WorldPoint activeClickTile;
+
+	/** Bird flight projectiles already handled, so each return flight is acted on once. */
+	private final Set<Projectile> seenProjectiles = new HashSet<>();
 
 	/** The tick the active spot was clicked, used as a safety timeout. */
 	private int activeStartTick;
@@ -256,17 +258,18 @@ public class AerialFishingPlugin extends Plugin
 			return;
 
 		activeSpotIndex = npc.getIndex();
-		birdArrived = false;
+		activeClickTile = centreTile(npc);
 		activeStartTick = tickCounter;
 	}
 
 	/**
 	 * Advances the active-bird state: the bird shows from the click until the
-	 * cormorant, having reached the spot, heads back. Also clears the state if the
-	 * spot despawns or the trip runs past a safety timeout.
+	 * player's own bird starts its return flight from the spot. Also clears the state
+	 * if the spot despawns or the trip runs past a safety timeout.
 	 */
 	private void updateActiveBird()
 	{
+		boolean returning = ownBirdReturning();
 		if (activeSpotIndex < 0)
 			return;
 
@@ -283,33 +286,66 @@ public class AerialFishingPlugin extends Plugin
 			return;
 		}
 
-		if (cormorantAt(spot.getLocation()))
-			birdArrived = true;
-		else if (birdArrived)
+		if (returning)
 			clearActiveBird();
 	}
 
 	/**
-	 * Whether a cormorant NPC currently sits on or beside the given tile.
+	 * Whether the player's own bird has started its return flight from the active
+	 * spot since the last tick. The return flight is a projectile aimed at the local
+	 * player, so other players' birds never match. Every new flight is recorded as
+	 * seen, even with no active spot, so an older flight still in the air never ends
+	 * a later trip.
 	 *
-	 * @param location the spot tile to test
-	 * @return {@code true} if a cormorant is at that tile
+	 * @return {@code true} if a new return flight left the active spot this tick
 	 */
-	private boolean cormorantAt(WorldPoint location)
+	private boolean ownBirdReturning()
 	{
-		for (NPC npc : client.getTopLevelWorldView().npcs())
+		Player local = client.getLocalPlayer();
+		AerialFishSpot spot = activeSpotIndex < 0 ? null : spots.get(activeSpotIndex);
+		Set<Projectile> current = new HashSet<>();
+		boolean returning = false;
+
+		for (Projectile projectile : client.getProjectiles())
 		{
-			if (npc.getId() != FISHING_CORMORANT)
+			if (projectile.getId() != SpotanimID.AERIAL_FISHING_TRAVEL || projectile.getTargetActor() != local)
 				continue;
 
-			WorldPoint birdLocation = npc.getWorldLocation();
-			if (birdLocation != null
-				&& birdLocation.getPlane() == location.getPlane()
-				&& birdLocation.distanceTo(location) <= CORMORANT_AT_SPOT_TILES)
-				return true;
+			current.add(projectile);
+			if (seenProjectiles.add(projectile) && spot != null)
+				returning |= leftFrom(projectile.getSourcePoint(), spot.getLocation(), activeClickTile);
 		}
 
-		return false;
+		seenProjectiles.retainAll(current);
+		return returning;
+	}
+
+	/**
+	 * Whether a flight's start tile is at, or next to, either given tile.
+	 *
+	 * @param source the flight's start tile
+	 * @param spotTile the active spot's current tile
+	 * @param clickTile the active spot's tile when clicked
+	 * @return {@code true} if the flight left from the active spot
+	 */
+	private static boolean leftFrom(WorldPoint source, WorldPoint spotTile, WorldPoint clickTile)
+	{
+		if (source == null)
+			return false;
+
+		return near(source, spotTile) || near(source, clickTile);
+	}
+
+	/**
+	 * Whether two tiles are on the same plane and within {@link #RETURN_SOURCE_TILES}.
+	 *
+	 * @param a the first tile
+	 * @param b the second tile, or {@code null}
+	 * @return {@code true} if the tiles are that close
+	 */
+	private static boolean near(WorldPoint a, WorldPoint b)
+	{
+		return b != null && a.getPlane() == b.getPlane() && a.distanceTo(b) <= RETURN_SOURCE_TILES;
 	}
 
 	/**
@@ -331,7 +367,7 @@ public class AerialFishingPlugin extends Plugin
 	private void clearActiveBird()
 	{
 		activeSpotIndex = -1;
-		birdArrived = false;
+		activeClickTile = null;
 	}
 
 	/**
@@ -476,6 +512,7 @@ public class AerialFishingPlugin extends Plugin
 	private void reset()
 	{
 		spots.clear();
+		seenProjectiles.clear();
 		rankedSpots = Collections.emptyList();
 		clearActiveBird();
 	}
