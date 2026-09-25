@@ -213,6 +213,24 @@ public interface AerialFishingConfig extends Config
 	}
 
 	/**
+	 * Whether to mark the best tile to stand on while aerial fishing: the middle of
+	 * Molch Island's east edge, which measured the most spots within catch range.
+	 *
+	 * @return {@code true} to show the stand-here marker
+	 */
+	@ConfigItem(
+		keyName = "showStandTile",
+		name = "Show stand-here tile",
+		description = "Mark the island tile with the most spots in close range",
+		section = displaySection,
+		position = 8
+	)
+	default boolean showStandTile()
+	{
+		return true;
+	}
+
+	/**
 	 * Whether to treat frenzied spots (a distinct NPC id) as the 3-tick tier.
 	 *
 	 * <p>On by default. A frenzied spot still ranks below any 1- or 2-tick spot, so
@@ -339,5 +357,23 @@ public interface AerialFishingConfig extends Config
 	default Color expiringColor()
 	{
 		return new Color(255, 150, 0, 200);
+	}
+
+	/**
+	 * The color of the stand-here tile marker.
+	 *
+	 * @return the stand-here tile color
+	 */
+	@Alpha
+	@ConfigItem(
+		keyName = "standTileColor",
+		name = "Stand-here tile",
+		description = "Color of the stand-here tile marker",
+		section = colorSection,
+		position = 3
+	)
+	default Color standTileColor()
+	{
+		return new Color(255, 255, 0, 180);
 	}
 }
